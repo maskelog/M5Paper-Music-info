@@ -136,7 +136,7 @@ void avrc_metadata_callback(uint8_t attribute_id, const uint8_t *value)
 void setup()
 {
   M5.begin();
-  // 가로 모드로 회전
+  // 가로 모드
   M5.TP.SetRotation(0);  // 터치 회전
   M5.EPD.SetRotation(0); // 디스플레이 회전
   M5.EPD.Clear(true);
