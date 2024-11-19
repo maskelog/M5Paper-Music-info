@@ -15,6 +15,11 @@ BluetoothA2DPSink a2dp_sink;
 String track_title = "제목: 없음";
 String track_artist = "가수: 없음";
 
+// 전역 변수 추가
+unsigned long g38PressStartTime = 0;
+const unsigned long LONG_PRESS_TIME = 2000; // 2초 이상 길게 누르기
+bool isPaused = false;
+
 // M5Paper용 printEfont 함수 구현
 void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, int textsize = 1, int color = 0)
 {
@@ -101,16 +106,20 @@ void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, i
 
 void update_display()
 {
-  // 캔버스 초기화 (가로 모드로 크기 변경)
-  canvas.createCanvas(960, 540);
-  canvas.fillCanvas(15);
+  // 텍스트 영역만 다시 그리기 위한 작은 캔버스 생성
+  const int TEXT_AREA_HEIGHT = 200; // 텍스트 영역 높이
+  const int TEXT_Y_START = 100;     // 텍스트 시작 y좌표
 
-  // 텍스트 출력 - 위치 조정
-  printEfont(&canvas, track_title.c_str(), 40, 100, 3);
-  printEfont(&canvas, track_artist.c_str(), 40, 250, 3);
+  canvas.createCanvas(960, TEXT_AREA_HEIGHT);
+  canvas.fillCanvas(15); // 흰색 배경
 
-  // 캔버스 출력
-  canvas.pushCanvas(0, 0, UPDATE_MODE_GC16);
+  // 곡 정보 텍스트 출력
+  printEfont(&canvas, track_title.c_str(), 40, 0, 4); // y좌표를 캔버스 기준으로 조정
+  printEfont(&canvas, track_artist.c_str(), 40, 80, 4);
+
+  // 텍스트 영역만 부분 업데이트 (DU 모드 사용)
+  canvas.pushCanvas(0, TEXT_Y_START, UPDATE_MODE_DU); // DU 모드로 변경하여 깜빡임 감소
+
   canvas.deleteCanvas();
 }
 
@@ -167,5 +176,56 @@ void setup()
 void loop()
 {
   M5.update();
+
+  // G38 버튼 (가운데) 처리
+  if (M5.BtnP.wasPressed())
+  {
+    g38PressStartTime = millis(); // 버튼 누른 시간 기록
+  }
+
+  if (M5.BtnP.isPressed())
+  {
+    // 길게 누르기 감지
+    if (millis() - g38PressStartTime >= LONG_PRESS_TIME)
+    {
+      // 전원 끄기
+      M5.EPD.Clear(true);
+      delay(100);
+      M5.shutdown(); // 전원 끄기
+    }
+  }
+  else if (M5.BtnP.wasReleased())
+  {
+    // 짧게 누르기 감지
+    if (millis() - g38PressStartTime < LONG_PRESS_TIME)
+    {
+      // 재생/일시정지 토글
+      isPaused = !isPaused;
+      if (isPaused)
+      {
+        a2dp_sink.pause();
+      }
+      else
+      {
+        a2dp_sink.play();
+      }
+      update_display(); // 화면 갱신
+    }
+  }
+
+  // G37 버튼 (왼쪽) - 이전곡
+  if (M5.BtnL.wasPressed())
+  {
+    a2dp_sink.previous();
+    update_display();
+  }
+
+  // G39 버튼 (오른쪽) - 다음곡
+  if (M5.BtnR.wasPressed())
+  {
+    a2dp_sink.next();
+    update_display();
+  }
+
   delay(100);
 }
