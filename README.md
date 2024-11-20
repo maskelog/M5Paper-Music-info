@@ -1,5 +1,8 @@
 # M5Paper-Music-info
 
+![Screenshot 1](https://github.com/user-attachments/assets/b8d29e9f-9be1-45a5-89d6-c63535029f24)
+![Screenshot 2](https://github.com/user-attachments/assets/734eb89a-14b4-4622-a984-47465fdf760d)
+
 ## Description
 
 This project demonstrates how to use A2DP over Bluetooth to fetch music metadata and display it on the M5Paper screen.
