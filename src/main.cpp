@@ -14,10 +14,11 @@ BluetoothA2DPSink a2dp_sink;
 // 음악 정보 저장 변수
 String track_title = "제목: 없음";
 String track_artist = "가수: 없음";
+String track_album = "앨범: 없음";
 
 // 전역 변수 추가
 unsigned long g38PressStartTime = 0;
-const unsigned long LONG_PRESS_TIME = 2000; // 2초 이상 길게 누르기
+const unsigned long LONG_PRESS_TIME = 2000;
 bool isPaused = false;
 
 // M5Paper용 printEfont 함수 구현
@@ -107,15 +108,16 @@ void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, i
 void update_display()
 {
   // 텍스트 영역만 다시 그리기 위한 작은 캔버스 생성
-  const int TEXT_AREA_HEIGHT = 200; // 텍스트 영역 높이
+  const int TEXT_AREA_HEIGHT = 300; // 텍스트 영역 높이
   const int TEXT_Y_START = 100;     // 텍스트 시작 y좌표
 
   canvas.createCanvas(960, TEXT_AREA_HEIGHT);
   canvas.fillCanvas(15); // 흰색 배경
 
   // 곡 정보 텍스트 출력
-  printEfont(&canvas, track_title.c_str(), 40, 0, 4); // y좌표를 캔버스 기준으로 조정
+  printEfont(&canvas, track_title.c_str(), 40, 0, 4);
   printEfont(&canvas, track_artist.c_str(), 40, 80, 4);
+  printEfont(&canvas, track_album.c_str(), 40, 160, 4);
 
   // 텍스트 영역만 부분 업데이트 (DU 모드 사용)
   canvas.pushCanvas(0, TEXT_Y_START, UPDATE_MODE_DU); // DU 모드로 변경하여 깜빡임 감소
@@ -134,6 +136,9 @@ void avrc_metadata_callback(uint8_t attribute_id, const uint8_t *value)
     break;
   case ESP_AVRC_MD_ATTR_ARTIST:
     track_artist = "가수: " + attribute_value;
+    break;
+  case ESP_AVRC_MD_ATTR_ALBUM:
+    track_album = "앨범: " + attribute_value;
     break;
   default:
     break;
@@ -160,11 +165,6 @@ void setup()
   // 제목을 화면 상단 중앙에 배치
   printEfont(&canvas, "M5Paper Music Display", 40, 20, 3);
 
-  // 테스트를 위한 다국어 출력 - 위치 조정
-  printEfont(&canvas, "music info", 40, 100, 3);
-  printEfont(&canvas, "노래 정보", 40, 170, 3);
-  printEfont(&canvas, "ミュージック·インフォ", 40, 230, 3);
-  printEfont(&canvas, "音乐信息", 40, 290, 3);
   canvas.pushCanvas(0, 0, UPDATE_MODE_GC16);
 
   // 블루투스 설정
