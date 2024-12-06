@@ -119,6 +119,11 @@ void update_display()
   printEfont(&canvas, track_artist.c_str(), 40, 80, 4);
   printEfont(&canvas, track_album.c_str(), 40, 160, 4);
 
+  // 아이콘 그리기
+  canvas.drawRect(40, 240, 60, 60, 0);  // 이전곡 아이콘
+  canvas.drawRect(140, 240, 60, 60, 0); // 재생/일시정지 아이콘
+  canvas.drawRect(240, 240, 60, 60, 0); // 다음곡 아이콘
+
   // 텍스트 영역만 부분 업데이트 (DU 모드 사용)
   canvas.pushCanvas(0, TEXT_Y_START, UPDATE_MODE_DU); // DU 모드로 변경하여 깜빡임 감소
 
