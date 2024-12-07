@@ -105,6 +105,30 @@ void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, i
   }
 }
 
+void drawPlayIcon(M5EPD_Canvas *canvas, int x, int y, int size)
+{
+  canvas->fillTriangle(x, y, x, y + size, x + size, y + size / 2, 0);
+}
+
+void drawPauseIcon(M5EPD_Canvas *canvas, int x, int y, int size)
+{
+  int barWidth = size / 3;
+  canvas->fillRect(x, y, barWidth, size, 0);
+  canvas->fillRect(x + 2 * barWidth, y, barWidth, size, 0);
+}
+
+void drawPreviousIcon(M5EPD_Canvas *canvas, int x, int y, int size)
+{
+  canvas->fillTriangle(x + size, y, x + size, y + size, x, y + size / 2, 0);
+  canvas->fillRect(x + size, y, size / 4, size, 0);
+}
+
+void drawNextIcon(M5EPD_Canvas *canvas, int x, int y, int size)
+{
+  canvas->fillTriangle(x, y, x, y + size, x + size, y + size / 2, 0);
+  canvas->fillRect(x - size / 4, y, size / 4, size, 0);
+}
+
 void update_display()
 {
   // 텍스트 영역만 다시 그리기 위한 작은 캔버스 생성
@@ -120,9 +144,16 @@ void update_display()
   printEfont(&canvas, track_album.c_str(), 40, 160, 4);
 
   // 아이콘 그리기
-  canvas.drawRect(40, 240, 60, 60, 0);  // 이전곡 아이콘
-  canvas.drawRect(140, 240, 60, 60, 0); // 재생/일시정지 아이콘
-  canvas.drawRect(240, 240, 60, 60, 0); // 다음곡 아이콘
+  drawPreviousIcon(&canvas, 40, 240, 60); // 이전곡 아이콘
+  if (isPaused)
+  {
+    drawPlayIcon(&canvas, 140, 240, 60); // 재생 아이콘
+  }
+  else
+  {
+    drawPauseIcon(&canvas, 140, 240, 60); // 일시정지 아이콘
+  }
+  drawNextIcon(&canvas, 240, 240, 60); // 다음곡 아이콘
 
   // 텍스트 영역만 부분 업데이트 (DU 모드 사용)
   canvas.pushCanvas(0, TEXT_Y_START, UPDATE_MODE_DU); // DU 모드로 변경하여 깜빡임 감소
