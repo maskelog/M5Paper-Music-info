@@ -1,77 +1,78 @@
-#define LGFX_M5PAPER
 #include <M5EPD.h>
 #include <BluetoothA2DPSink.h>
-#include "efontEnableAll.h"
 #include "efont.h"
-#include <LovyanGFX.hpp>
-#include <LGFX_AUTODETECT.hpp>
-#include "M5EPD.h"
-#include "esp_mac.h"
+#include "efontEnableAll.h"
+
+#define G37_PIN 37 // G37 버튼 핀 번호
+#define G38_PIN 38 // G38 버튼 핀 번호
+#define G39_PIN 39 // G39 버튼 핀 번호
 
 M5EPD_Canvas canvas(&M5.EPD);
+M5EPD_Canvas infoCanvas(&M5.EPD);
 BluetoothA2DPSink a2dp_sink;
+
+int point[2][2];
+
+// 버튼 크기와 간격 조정
+int btnSize = 120;
+int btnPitch = 130;
+int xOffset = 40;
+int yOffset = 100;
+int PrtOffsetx = 14;
+int PrtOffsety = -7;
+int btn0 = yOffset + 0 * btnPitch;
+int btn1 = yOffset + 1 * btnPitch;
 
 // 음악 정보 저장 변수
 String track_title = "제목: 없음";
 String track_artist = "가수: 없음";
 String track_album = "앨범: 없음";
 
-// 전역 변수 추가
-unsigned long g38PressStartTime = 0;
-const unsigned long LONG_PRESS_TIME = 2000;
 bool isPaused = false;
+unsigned long g38PressTime = 0;
+bool g38LongPressed = false;
 
-// M5Paper용 printEfont 함수 구현
-void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, int textsize = 1, int color = 0)
+void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, int textsize = 1, int color = 15)
 {
   static int posX = 0;
   static int posY = 0;
-  uint32_t textcolor = 0;
-  uint32_t textbgcolor = 15; // M5Paper의 흰색 배경값
+  uint32_t textcolor = 15;
+  uint32_t textbgcolor = 0;
 
-  if (color != 0)
+  if (color != 15)
   {
-    textcolor = 15;
-    textbgcolor = 0;
+    textcolor = 0;
+    textbgcolor = 15;
   }
 
   if (x != -1)
-  {
     posX = x;
-  }
   if (y != -1)
-  {
     posY = y;
-  }
 
   byte font[32];
   while (*str != 0x00)
   {
-    // 개행 처리
     if (*str == '\n')
     {
       posY += 16 * textsize;
-      posX = x != -1 ? x : 0; // 개행시 지정된 x 위치로 복귀
+      posX = x != -1 ? x : 0;
       str++;
       continue;
     }
 
-    // UTF-8을 UTF-16으로 변환하고 폰트 데이터 가져오기
     uint16_t strUTF16;
     str = efontUFT8toUTF16(&strUTF16, (char *)str);
     getefontData(font, strUTF16);
 
-    // 문자 폭 계산
     int width = 16 * textsize;
     if (strUTF16 < 0x0100)
     {
-      width = 8 * textsize; // ASCII 문자는 절반 폭
+      width = 8 * textsize;
     }
 
-    // 배경 채우기
     canvas->fillRect(posX, posY, width, 16 * textsize, textbgcolor);
 
-    // 폰트 데이터 그리기
     for (uint8_t row = 0; row < 16; row++)
     {
       word fontdata = font[row * 2] * 256 + font[row * 2 + 1];
@@ -93,10 +94,8 @@ void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, i
       }
     }
 
-    // 커서 이동
     posX += width;
 
-    // 자동 줄바꿈
     if (canvas->width() <= posX)
     {
       posX = x != -1 ? x : 0;
@@ -105,60 +104,134 @@ void printEfont(M5EPD_Canvas *canvas, const char *str, int x = -1, int y = -1, i
   }
 }
 
-void drawPlayIcon(M5EPD_Canvas *canvas, int x, int y, int size)
+void updateMusicInfo()
 {
-  canvas->fillTriangle(x, y, x, y + size, x + size, y + size / 2, 0);
+  const int TEXT_Y_START = 50;
+  const int LINE_SPACING = 50;
+  const int INFO_HEIGHT = TEXT_Y_START + LINE_SPACING * 3; // 음악 정보 영역의 높이
+
+  // 음악 정보 전용 캔버스 생성
+  infoCanvas.createCanvas(540, INFO_HEIGHT);
+  infoCanvas.fillCanvas(0); // 검은색 배경
+
+  // 음악 정보 표시
+  printEfont(&infoCanvas, track_title.c_str(), xOffset, TEXT_Y_START, 2);
+  printEfont(&infoCanvas, track_artist.c_str(), xOffset, TEXT_Y_START + LINE_SPACING, 2);
+  printEfont(&infoCanvas, track_album.c_str(), xOffset, TEXT_Y_START + LINE_SPACING * 2, 2);
+
+  // 음악 정보 영역만 부분 업데이트
+  infoCanvas.pushCanvas(0, 0, UPDATE_MODE_DU4); // DU4 모드로 변경하여 더 빠른 업데이트
 }
 
-void drawPauseIcon(M5EPD_Canvas *canvas, int x, int y, int size)
+void drawMusicControls()
 {
-  int barWidth = size / 3;
-  canvas->fillRect(x, y, barWidth, size, 0);
-  canvas->fillRect(x + 2 * barWidth, y, barWidth, size, 0);
-}
+  canvas.createCanvas(540, 960);
+  canvas.fillCanvas(0);
 
-void drawPreviousIcon(M5EPD_Canvas *canvas, int x, int y, int size)
-{
-  canvas->fillTriangle(x + size, y, x + size, y + size, x, y + size / 2, 0);
-  canvas->fillRect(x + size, y, size / 4, size, 0);
-}
+  // 텍스트 정보 표시 (상단)
+  const int TEXT_Y_START = 50;
+  const int LINE_SPACING = 50;
 
-void drawNextIcon(M5EPD_Canvas *canvas, int x, int y, int size)
-{
-  canvas->fillTriangle(x, y, x, y + size, x + size, y + size / 2, 0);
-  canvas->fillRect(x - size / 4, y, size / 4, size, 0);
-}
+  printEfont(&canvas, track_title.c_str(), xOffset, TEXT_Y_START, 2);
+  printEfont(&canvas, track_artist.c_str(), xOffset, TEXT_Y_START + LINE_SPACING, 2);
+  printEfont(&canvas, track_album.c_str(), xOffset, TEXT_Y_START + LINE_SPACING * 2, 2);
 
-void update_display()
-{
-  // 텍스트 영역만 다시 그리기 위한 작은 캔버스 생성
-  const int TEXT_AREA_HEIGHT = 300; // 텍스트 영역 높이
-  const int TEXT_Y_START = 100;     // 텍스트 시작 y좌표
+  // 버튼 위치 조정
+  const int BUTTON_Y_START = TEXT_Y_START + LINE_SPACING * 3 + 50;
+  btn0 = BUTTON_Y_START;
+  btn1 = BUTTON_Y_START + btnSize + 20; // 두 번째 줄 버튼의 Y 좌표
 
-  canvas.createCanvas(960, TEXT_AREA_HEIGHT);
-  canvas.fillCanvas(15); // 흰색 배경
-
-  // 곡 정보 텍스트 출력
-  printEfont(&canvas, track_title.c_str(), 40, 0, 4);
-  printEfont(&canvas, track_artist.c_str(), 40, 80, 4);
-  printEfont(&canvas, track_album.c_str(), 40, 160, 4);
-
-  // 아이콘 그리기
-  drawPreviousIcon(&canvas, 40, 240, 60); // 이전곡 아이콘
-  if (isPaused)
+  // 첫 번째 줄: 이전, 일시정지/재생, 다음
+  for (int i = 0; i < 3; i++)
   {
-    drawPlayIcon(&canvas, 140, 240, 60); // 재생 아이콘
+    canvas.drawRoundRect(xOffset + i * btnPitch, btn0, btnSize, btnSize, 10, 15);
   }
-  else
+  printEfont(&canvas, "이전", xOffset + 0 * btnPitch + PrtOffsetx, btn0 + btnSize / 2 + PrtOffsety, 2);
+  printEfont(&canvas, isPaused ? "재생" : "일시정지", xOffset + 1 * btnPitch + PrtOffsetx - 10, btn0 + btnSize / 2 + PrtOffsety, 2);
+  printEfont(&canvas, "다음", xOffset + 2 * btnPitch + PrtOffsetx, btn0 + btnSize / 2 + PrtOffsety, 2);
+
+  // 두 번째 줄: 볼륨 -, 음소거, 볼륨 +
+  for (int i = 0; i < 3; i++)
   {
-    drawPauseIcon(&canvas, 140, 240, 60); // 일시정지 아이콘
+    canvas.drawRoundRect(xOffset + i * btnPitch, btn1, btnSize, btnSize, 10, 15);
   }
-  drawNextIcon(&canvas, 240, 240, 60); // 다음곡 아이콘
+  printEfont(&canvas, "볼륨 -", xOffset + 0 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2);
+  printEfont(&canvas, "음소거", xOffset + 1 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2);
+  printEfont(&canvas, "볼륨 +", xOffset + 2 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2);
 
-  // 텍스트 영역만 부분 업데이트 (DU 모드 사용)
-  canvas.pushCanvas(0, TEXT_Y_START, UPDATE_MODE_DU); // DU 모드로 변경하여 깜빡임 감소
+  canvas.pushCanvas(0, 0, UPDATE_MODE_GC16);
+}
 
-  canvas.deleteCanvas();
+void handleTouch()
+{
+  if (M5.TP.available())
+  {
+    if (!M5.TP.isFingerUp())
+    {
+      M5.TP.update();
+      for (int i = 0; i < 2; i++)
+      {
+        tp_finger_t FingerItem = M5.TP.readFinger(i);
+        if ((point[i][0] != FingerItem.x) || (point[i][1] != FingerItem.y))
+        {
+          point[i][0] = FingerItem.x;
+          point[i][1] = FingerItem.y;
+
+          int controlYOffset = 280;
+          int btnY;
+
+          // 왼쪽 열 버튼 (이전, 재생, 다음)
+          for (int j = 0; j < 3; j++)
+          {
+            btnY = controlYOffset + 30 + j * btnPitch;
+            if (point[i][0] >= xOffset && point[i][0] <= xOffset + btnSize &&
+                point[i][1] >= btnY && point[i][1] <= btnY + btnSize)
+            {
+              switch (j)
+              {
+              case 0: // 이전
+                a2dp_sink.previous();
+                break;
+              case 1: // 재생/일시정지
+                isPaused = !isPaused;
+                if (isPaused)
+                  a2dp_sink.pause();
+                else
+                  a2dp_sink.play();
+                break;
+              case 2: // 다음
+                a2dp_sink.next();
+                break;
+              }
+            }
+          }
+
+          // 오른쪽 열 버튼 (볼륨+, 음소거, 볼륨-)
+          for (int j = 0; j < 3; j++)
+          {
+            btnY = controlYOffset + 30 + j * btnPitch;
+            if (point[i][0] >= xOffset + btnPitch && point[i][0] <= xOffset + btnPitch + btnSize &&
+                point[i][1] >= btnY && point[i][1] <= btnY + btnSize)
+            {
+              switch (j)
+              {
+              case 0: // 볼륨+
+                a2dp_sink.set_volume(a2dp_sink.get_volume() + 5);
+                break;
+              case 1: // 음소거
+                a2dp_sink.set_volume(0);
+                break;
+              case 2: // 볼륨-
+                a2dp_sink.set_volume(a2dp_sink.get_volume() - 5);
+                break;
+              }
+            }
+          }
+          drawMusicControls();
+        }
+      }
+    }
+  }
 }
 
 void avrc_metadata_callback(uint8_t attribute_id, const uint8_t *value)
@@ -180,64 +253,65 @@ void avrc_metadata_callback(uint8_t attribute_id, const uint8_t *value)
     break;
   }
 
-  update_display();
+  updateMusicInfo();
+}
+
+void powerOff()
+{
+  M5.EPD.Clear(true);
+  M5.shutdown();
 }
 
 void setup()
 {
   M5.begin();
-  // 가로 모드
-  M5.TP.SetRotation(0);  // 터치 회전
-  M5.EPD.SetRotation(0); // 디스플레이 회전
+  M5.EPD.SetRotation(1);
   M5.EPD.Clear(true);
-  delay(500);
 
-  // 캔버스 생성 (가로 모드)
-  canvas.createCanvas(960, 540);
+  pinMode(G37_PIN, INPUT_PULLUP); // G37 버튼 입력 설정
+  pinMode(G38_PIN, INPUT_PULLUP); // G38 버튼 입력 설정
+  pinMode(G39_PIN, INPUT_PULLUP); // G39 버튼 입력 설정
 
-  // 초기 화면 출력
-  canvas.fillCanvas(15);
-
-  // 제목을 화면 상단 중앙에 배치
-  printEfont(&canvas, "M5Paper Music Display", 40, 20, 3);
-
-  canvas.pushCanvas(0, 0, UPDATE_MODE_GC16);
-
-  // 블루투스 설정
-  Serial.begin(115200);
+  canvas.createCanvas(540, 960);
   a2dp_sink.set_avrc_metadata_callback(avrc_metadata_callback);
   a2dp_sink.start("M5Paper Music Display");
+
+  drawMusicControls();
 }
 
 void loop()
 {
   M5.update();
+  handleTouch();
 
-  // G38 버튼 (가운데) 처리
-  if (M5.BtnP.wasPressed())
+  // G37 버튼: 이전곡
+  if (digitalRead(G37_PIN) == LOW)
   {
-    g38PressStartTime = millis(); // 버튼 누른 시간 기록
+    a2dp_sink.previous(); // 이전곡 함수 호출
+    delay(200);           // 디바운싱을 위한 지연
   }
 
-  if (M5.BtnP.isPressed())
+  // G38 버튼: 재생/일시정지 및 전원 종료
+  if (digitalRead(G38_PIN) == LOW)
   {
-    // 길게 누르기 감지
-    if (millis() - g38PressStartTime >= LONG_PRESS_TIME)
+    if (g38PressTime == 0)
     {
-      // 전원 끄기
-      M5.EPD.Clear(true);
-      delay(100);
-      M5.shutdown(); // 전원 끄기
+      g38PressTime = millis(); // 눌린 시간 기록 시작
+      g38LongPressed = false;
+    }
+    else if (!g38LongPressed && (millis() - g38PressTime > 3000))
+    {
+      powerOff(); // 전원 종료
+      g38LongPressed = true;
     }
   }
-  else if (M5.BtnP.wasReleased())
+  else
   {
-    // 짧게 누르기 감지
-    if (millis() - g38PressStartTime < LONG_PRESS_TIME)
+    if (g38PressTime != 0 && !g38LongPressed)
     {
-      // 재생/일시정지 토글
-      isPaused = !isPaused;
-      if (isPaused)
+      // 짧게 눌렀을 때 재생/일시정지 토글
+      static bool isPlaying = true;
+      if (isPlaying)
       {
         a2dp_sink.pause();
       }
@@ -245,23 +319,18 @@ void loop()
       {
         a2dp_sink.play();
       }
-      update_display(); // 화면 갱신
+      isPlaying = !isPlaying;
     }
+    g38PressTime = 0;
+    g38LongPressed = false;
   }
 
-  // G37 버튼 (왼쪽) - 이전곡
-  if (M5.BtnL.wasPressed())
+  // G39 버튼: 다음곡
+  if (digitalRead(G39_PIN) == LOW)
   {
-    a2dp_sink.previous();
-    update_display();
+    a2dp_sink.next(); // 다음곡 함수 호출
+    delay(200);       // 디바운싱을 위한 지연
   }
 
-  // G39 버튼 (오른쪽) - 다음곡
-  if (M5.BtnR.wasPressed())
-  {
-    a2dp_sink.next();
-    update_display();
-  }
-
-  delay(100);
+  delay(10);
 }
