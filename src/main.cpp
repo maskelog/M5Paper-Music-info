@@ -112,12 +112,12 @@ void updateMusicInfo()
 
   // 음악 정보 전용 캔버스 생성
   infoCanvas.createCanvas(540, INFO_HEIGHT);
-  infoCanvas.fillCanvas(0); // 검은색 배경
+  infoCanvas.fillCanvas(15); // 검은색 배경
 
   // 음악 정보 표시
-  printEfont(&infoCanvas, track_title.c_str(), xOffset, TEXT_Y_START, 2);
-  printEfont(&infoCanvas, track_artist.c_str(), xOffset, TEXT_Y_START + LINE_SPACING, 2);
-  printEfont(&infoCanvas, track_album.c_str(), xOffset, TEXT_Y_START + LINE_SPACING * 2, 2);
+  printEfont(&infoCanvas, track_title.c_str(), xOffset, TEXT_Y_START, 2, 0);
+  printEfont(&infoCanvas, track_artist.c_str(), xOffset, TEXT_Y_START + LINE_SPACING, 2, 0);
+  printEfont(&infoCanvas, track_album.c_str(), xOffset, TEXT_Y_START + LINE_SPACING * 2, 2, 0);
 
   // 음악 정보 영역만 부분 업데이트
   infoCanvas.pushCanvas(0, 0, UPDATE_MODE_DU4); // DU4 모드로 변경하여 더 빠른 업데이트
@@ -126,15 +126,15 @@ void updateMusicInfo()
 void drawMusicControls()
 {
   canvas.createCanvas(540, 960);
-  canvas.fillCanvas(0);
+  canvas.fillCanvas(15);
 
   // 텍스트 정보 표시 (상단)
   const int TEXT_Y_START = 50;
   const int LINE_SPACING = 50;
 
-  printEfont(&canvas, track_title.c_str(), xOffset, TEXT_Y_START, 2);
-  printEfont(&canvas, track_artist.c_str(), xOffset, TEXT_Y_START + LINE_SPACING, 2);
-  printEfont(&canvas, track_album.c_str(), xOffset, TEXT_Y_START + LINE_SPACING * 2, 2);
+  printEfont(&canvas, track_title.c_str(), xOffset, TEXT_Y_START, 2, 0);
+  printEfont(&canvas, track_artist.c_str(), xOffset, TEXT_Y_START + LINE_SPACING, 2, 0);
+  printEfont(&canvas, track_album.c_str(), xOffset, TEXT_Y_START + LINE_SPACING * 2, 2, 0);
 
   // 버튼 위치 조정
   const int BUTTON_Y_START = TEXT_Y_START + LINE_SPACING * 3 + 50;
@@ -146,18 +146,18 @@ void drawMusicControls()
   {
     canvas.drawRoundRect(xOffset + i * btnPitch, btn0, btnSize, btnSize, 10, 15);
   }
-  printEfont(&canvas, "이전", xOffset + 0 * btnPitch + PrtOffsetx, btn0 + btnSize / 2 + PrtOffsety, 2);
-  printEfont(&canvas, isPaused ? "재생" : "일시정지", xOffset + 1 * btnPitch + PrtOffsetx - 10, btn0 + btnSize / 2 + PrtOffsety, 2);
-  printEfont(&canvas, "다음", xOffset + 2 * btnPitch + PrtOffsetx, btn0 + btnSize / 2 + PrtOffsety, 2);
+  printEfont(&canvas, "이전", xOffset + 0 * btnPitch + PrtOffsetx, btn0 + btnSize / 2 + PrtOffsety, 2, 0);
+  printEfont(&canvas, isPaused ? "재생" : "일시정지", xOffset + 1 * btnPitch + PrtOffsetx - 10, btn0 + btnSize / 2 + PrtOffsety, 2, 0);
+  printEfont(&canvas, "다음", xOffset + 2 * btnPitch + PrtOffsetx, btn0 + btnSize / 2 + PrtOffsety, 2, 0);
 
   // 두 번째 줄: 볼륨 -, 음소거, 볼륨 +
   for (int i = 0; i < 3; i++)
   {
     canvas.drawRoundRect(xOffset + i * btnPitch, btn1, btnSize, btnSize, 10, 15);
   }
-  printEfont(&canvas, "볼륨 -", xOffset + 0 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2);
-  printEfont(&canvas, "음소거", xOffset + 1 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2);
-  printEfont(&canvas, "볼륨 +", xOffset + 2 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2);
+  printEfont(&canvas, "볼륨 -", xOffset + 0 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2, 0);
+  printEfont(&canvas, "음소거", xOffset + 1 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2, 0);
+  printEfont(&canvas, "볼륨 +", xOffset + 2 * btnPitch + PrtOffsetx - 5, btn1 + btnSize / 2 + PrtOffsety, 2, 0);
 
   canvas.pushCanvas(0, 0, UPDATE_MODE_GC16);
 }
